@@ -2,72 +2,70 @@ import streamlit as st
 import requests
 import urllib3
 
-# 關閉 SSL 憑證警告訊息
+# 關閉安全警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 參數設定 ---
-# 這些是你指定的常用站點名稱
 FAVORITE_STATIONS = ["捷運三重站(1號出口)", "捷運三重站(3號出口)", "三重重陽公園", "二重國小", "東海高中"]
 
-st.set_page_config(page_title="三重區單車查詢", page_icon="🚲")
+st.set_page_config(page_title="三重單車即時查", page_icon="🚲")
 
 def get_bike_data():
-    """從 API 抓取資料，加入 Headers 偽裝並處理解析錯誤"""
-    url = "https://data.ntpc.gov.tw/api/datasets/0121e312-705a-4933-a6ef-9883f3603408/json?size=2000"
+    """更換 API 來源網址並加強錯誤處理"""
+    # 更換為 YouBike 2.0 專屬的另一組 API 網址測試
+    url = "https://data.ntpc.gov.tw/api/datasets/71cd87cf-2970-41f8-8327-e8fd9a42516b/json?size=2000"
     
-    # 模擬一般 Chrome 瀏覽器的請求標頭
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     try:
-        # verify=False 解決 SSL 問題，timeout 防止程式卡死
         response = requests.get(url, headers=headers, verify=False, timeout=15)
         
         if response.status_code == 200:
-            return response.json()
+            try:
+                return response.json()
+            except:
+                st.error("❌ 伺服器有回應，但不是 JSON 格式內容。")
+                st.text_area("伺服器回傳內容 (Debug)", response.text[:500])
+                return None
         else:
-            st.error(f"伺服器回應異常，狀態碼：{response.status_code}")
+            st.error(f"❌ 伺服器連線失敗，狀態碼: {response.status_code}")
             return None
     except Exception as e:
-        st.error(f"連線失敗：{e}")
+        st.error(f"❌ 無法連線至政府伺服器: {e}")
         return None
 
-# --- 主介面 ---
-st.title("🚲 三重區常用站點查詢")
+# --- UI 介面 ---
+st.title("🚲 三重區單車查詢")
 
-with st.spinner('正在獲取最新數據...'):
-    raw_data = get_bike_data()
+data = get_bike_data()
 
-if raw_data:
-    # 篩選邏輯：檢查站點名稱是否包含在我們定義的清單中
-    display_data = [
-        item for item in raw_data 
-        if any(station in item['sna'] for station in FAVORITE_STATIONS)
+if data:
+    # 篩選站點
+    favorites = [
+        s for s in data 
+        if any(name in s['sna'] for name in FAVORITE_STATIONS)
     ]
 
-    if display_data:
-        # 依照你的清單順序排序顯示
-        for fav_name in FAVORITE_STATIONS:
-            # 從資料中找出對應的站點
-            match = next((s for s in display_data if fav_name in s['sna']), None)
-            if match:
-                with st.container():
-                    # 移除名稱前綴
-                    clean_name = match['sna'].replace("YouBike2.0_", "")
-                    st.subheader(f"📍 {clean_name}")
-                    
-                    c1, c2 = st.columns(2)
-                    # sbi: 可借車數, bemp: 可還車位
-                    c1.metric("🚲 可借車輛", match['sbi'])
-                    c2.metric("🅿️ 可還空位", match['bemp'])
-                    
-                    st.caption(f"數據更新時間：{match['mday']}")
-                    st.divider()
+    if favorites:
+        for s in favorites:
+            # 格式化名稱
+            clean_name = s['sna'].replace("YouBike2.0_", "")
+            with st.container():
+                st.subheader(f"📍 {clean_name}")
+                c1, c2 = st.columns(2)
+                # sbi: 可借, bemp: 可還
+                c1.metric("🚲 可借車輛", s['sbi'])
+                c2.metric("🅿️ 可還空位", s['bemp'])
+                st.caption(f"更新時間: {s['mday']}")
+                st.divider()
     else:
-        st.warning("在 API 中找不到指定的站點，請確認名稱是否精確。")
+        st.warning("⚠️ 找不到指定站點，請確認 API 名稱是否有變。")
+        with st.expander("查看目前 API 內的前 5 個站點名稱"):
+            st.write([s['sna'] for s in data[:5]])
 else:
-    st.info("暫時無法取得即時資料，請稍後重試。")
+    st.info("請檢查上方錯誤訊息。這通常是政府 API 伺服器的限制問題，不需要會員。")
 
-if st.button("手動重新整理"):
+if st.button("重新整理"):
     st.rerun()
