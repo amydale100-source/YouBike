@@ -12,7 +12,8 @@ def get_bike_data():
     # 新北市公共自行車即時資訊 API 網址
     url = "https://data.ntpc.gov.tw/api/datasets/0121e312-705a-4933-a6ef-9883f3603408/json?size=2000"
     try:
-        response = requests.get(url)
+        # 關鍵修改：加入 verify=False 跳過憑證驗證
+        response = requests.get(url, verify=False, timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
