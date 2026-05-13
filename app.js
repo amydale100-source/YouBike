@@ -1,3 +1,4 @@
+console.log("🚲 app.js 有更新")
 // ====== 你要改的地方（API） ======
 // 新北 YouBike2.0 API（可能會變動，之後可替換）
 const API_URL = "https://data.ntpc.gov.tw/api/datasets/YOUR_DATASET_ID/json";
