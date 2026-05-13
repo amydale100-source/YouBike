@@ -1,15 +1,15 @@
 // ====== API ======
-const API_URL = "https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/csv/file";
-
+const API_URL =
+  "https://corsproxy.io/?https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/json";
 // ====== 你常用的站點 ======
 const FAVORITE_STATIONS = [
-  "捷運府中站",
+  "YouBike2.0_下庄市場",
   "板橋車站",
   "捷運新埔站"
 ];
 
 // ====== 版本 ======
-const APP_VERSION = 4;
+const APP_VERSION = 7;
 
 // ====== DOM ready ======
 document.addEventListener("DOMContentLoaded", () => {
@@ -36,20 +36,29 @@ function parseCSV(csv) {
 
 // ====== 抓資料 ======
 async function fetchData() {
+  document.getElementById("status").innerText = "載入中...";
+
   try {
     const res = await fetch(API_URL);
 
-    console.log("STATUS =", res.status);
-    console.log("OK =", res.ok);
-    console.log("TYPE =", res.headers.get("content-type"));
+    console.log("STATUS:", res.status);
+    console.log("TYPE:", res.headers.get("content-type"));
 
     const text = await res.text();
 
-    console.log("FIRST 300 CHARS:");
-    console.log(text.slice(0, 300));
+    console.log("RAW (前200字):");
+    console.log(text.slice(0, 200));
+
+    if (!res.ok) {
+      throw new Error("HTTP " + res.status);
+    }
+
+    // 暫時先不要 parse，先確認資料長什麼樣
+    document.getElementById("status").innerText = "API 有回應（看console）";
 
   } catch (err) {
-    console.error("FETCH FAILED:", err);
+    console.error("❌ FETCH ERROR:", err);
+    document.getElementById("status").innerText = "API 讀取失敗";
   }
 }
 
