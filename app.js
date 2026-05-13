@@ -13,17 +13,22 @@ const FAVORITE_STATIONS = [
 // ====== 主要流程 ======
 
 async function fetchData() {
-  const data = [
-    { sna: "捷運府中站", sbi: 5, bemp: 10 },
-    { sna: "板橋車站", sbi: 0, bemp: 20 },
-    { sna: "捷運新埔站", sbi: 12, bemp: 3 }
-  ];
+  document.getElementById("status").innerText = "更新中...";
 
-  renderStations(data);
+  try {
+    const res = await fetch("https://data.ntpc.gov.tw/api/datasets/3A8A.../json");
+    const data = await res.json();
 
-  document.getElementById("status").innerText = "測試資料";
-  document.getElementById("lastUpdate").innerText =
-    new Date().toLocaleTimeString();
+    renderStations(data);
+
+    document.getElementById("status").innerText = "即時資料";
+    document.getElementById("lastUpdate").innerText =
+      new Date().toLocaleTimeString();
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").innerText = "API 讀取失敗";
+  }
 }
 
 // ====== 過濾 + 顯示 ======
