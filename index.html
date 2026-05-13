@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouBike 即時站點</title>
     <style>
-        /* ====== 把你剛才那段漂亮的 CSS 貼在這裡 ====== */
         :root {
             --primary-color: #ff9d00;
             --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -70,10 +69,11 @@
             color: rgba(255, 255, 255, 0.9);
             font-size: 0.9rem;
             margin-bottom: 15px;
+            min-height: 1.2em;
         }
 
-        /* 關鍵：Grid 佈局 */
-        #bike-list {
+        /* 這裡同步改為 stationList 的樣式 */
+        #stationList {
             display: grid;
             grid-template-columns: 1fr;
             gap: 15px;
@@ -139,7 +139,7 @@
 
         <div id="status">準備就緒，請按下按鈕開始查詢</div>
         
-        <div id="bike-list"></div>
+        <div id="stationList"></div>
 
         <div class="footer">
             最後更新：<span id="lastUpdate">--</span>

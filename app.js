@@ -2,48 +2,77 @@
 const CLIENT_ID = 'amydale100-8925db52-3fb0-4142';
 const CLIENT_SECRET = '9fce0770-fea0-4353-891a-f89f37b5c532';
 
-const FAVORITE_STATIONS = ["捷運三重站(1號出口)", "捷運三重站(3號出口)", "三重重陽公園", "二重國小", "東海高中"];
-const APP_VERSION = 24; // 更新版號
+// 你要觀察的站點
+const FAVORITE_STATIONS = ["捷運三重站", "三重重陽公園", "二重國小", "東海高中"];
 
-document.addEventListener("DOMContentLoaded", () => {
-    const verEl = document.getElementById("version");
-    if (verEl) verEl.innerText = `🚲 app.js 版本：${APP_VERSION} (樣式優化版)`;
+// 確保頁面載入後才執行
+window.onload = () => {
     const btn = document.getElementById("refreshBtn");
-    if (btn) btn.addEventListener("click", startUpdate);
-});
+    if (btn) {
+        // 先移除所有舊的監聽器，確保乾淨
+        btn.onclick = startUpdate;
+        console.log("✅ 系統準備就緒，按鈕已綁定");
+    }
+};
 
 async function startUpdate() {
     const statusEl = document.getElementById("status");
-    const lastUpdateEl = document.getElementById("lastUpdate");
     const btn = document.getElementById("refreshBtn");
+    const container = document.getElementById("stationList");
+
+    if (!container) return;
 
     try {
+        // 1. 介面鎖定
         btn.disabled = true;
         btn.innerText = "讀取中...";
-        statusEl.innerText = "🔑 正在取得授權...";
+        statusEl.innerText = "🔑 正在取得 TDX 授權...";
+
+        // 2. 取得 Token
         const token = await getTDXToken();
 
-        statusEl.innerText = "📡 正在同步站點資料...";
-        const [stationInfo, availability] = await Promise.all([
-            fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Bike/Station/City/NewTaipei?$format=JSON", token),
-            fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/NewTaipei?$format=JSON", token)
+        // 3. 抓取資料 (雙重請求：站點資訊 + 數量)
+        statusEl.innerText = "📡 正在連線新北市資料庫...";
+        const [stationRes, availabilityRes] = await Promise.all([
+            fetch("https://tdx.transportdata.tw/api/basic/v2/Bike/Station/City/NewTaipei?$format=JSON", {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch("https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/NewTaipei?$format=JSON", {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
         ]);
 
-        const combinedData = availability.map(avail => {
-            const info = stationInfo.find(s => s.StationID === avail.StationID);
+        const stationData = await stationRes.json();
+        const availabilityData = await availabilityRes.json();
+
+        // 4. 合併資料
+        const combined = availabilityData.map(avail => {
+            const info = stationData.find(s => s.StationID === avail.StationID);
             return {
                 ...avail,
                 StationName: info ? info.StationName : { Zh_tw: "未知站點" }
             };
         });
 
-        renderStations(combinedData);
-        statusEl.innerText = "✅ 更新完成！";
-        if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
+        // 5. 過濾站點
+        const filtered = combined.filter(item => {
+            const name = item.StationName?.Zh_tw || "";
+            return FAVORITE_STATIONS.some(fav => name.includes(fav));
+        });
+
+        // 6. 渲染畫面
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="card">目前找不到符合的站點數據，請確認站名。</div>`;
+        } else {
+            renderList(filtered, container);
+            statusEl.innerText = "✅ 更新成功！";
+            const timeEl = document.getElementById("lastUpdate");
+            if (timeEl) timeEl.innerText = new Date().toLocaleTimeString();
+        }
 
     } catch (err) {
-        console.error(err);
-        statusEl.innerText = "❌ 錯誤：" + err.message;
+        console.error("更新過程發生錯誤:", err);
+        statusEl.innerText = "❌ 發生錯誤：" + err.message;
     } finally {
         btn.disabled = false;
         btn.innerText = "🚲 現在有車嗎？(點我查詢)";
@@ -51,47 +80,41 @@ async function startUpdate() {
 }
 
 async function getTDXToken() {
-    const authUrl = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token";
-    const body = new URLSearchParams({
+    const params = new URLSearchParams({
         'grant_type': 'client_credentials',
         'client_id': CLIENT_ID.trim(),
         'client_secret': CLIENT_SECRET.trim()
     });
-    const res = await fetch(authUrl, { method: 'POST', body });
-    if (!res.ok) throw new Error("授權失敗");
+
+    const res = await fetch("https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+    });
+
+    if (!res.ok) throw new Error("授權失敗，請確認 TDX 金鑰狀態");
     const data = await res.json();
     return data.access_token;
 }
 
-async function fetchTDX(url, token) {
-    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) throw new Error("API 連線失敗");
-    return await res.json();
-}
-
-function renderStations(data) {
-    // 【重要】這裡要對應你的 CSS ID: bike-list
-    const container = document.getElementById("bike-list") || document.getElementById("stationList");
-    if (!container) return;
-    
+function renderList(list, container) {
     container.innerHTML = "";
-
-    const filtered = data.filter(item => {
-        const name = item.StationName?.Zh_tw || "";
-        return FAVORITE_STATIONS.some(fav => name.includes(fav));
+    
+    // 排序：依照 FAVORITE_STATIONS 的順序排列
+    list.sort((a, b) => {
+        const aIdx = FAVORITE_STATIONS.findIndex(f => a.StationName.Zh_tw.includes(f));
+        const bIdx = FAVORITE_STATIONS.findIndex(f => b.StationName.Zh_tw.includes(f));
+        return aIdx - bIdx;
     });
 
-    if (filtered.length === 0) {
-        container.innerHTML = `<div class="card">找不到符合的站點。</div>`;
-        return;
-    }
-
-    filtered.forEach(item => {
-        const name = item.StationName.Zh_tw.replace("YouBike2.0_", "");
+    list.forEach(item => {
+        const name = (item.StationName?.Zh_tw || "未知").replace("YouBike2.0_", "");
         const bike = item.AvailableRentBikes ?? 0;
-        const empty = item.AvailableReturnSlots ?? 0; // TDX 的欄位名
         
-        // 根據數量決定狀態顏色 (對應你的 CSS)
+        // --- 核心修正：嘗試所有可能的「空位」欄位名稱 ---
+        // 新北市 TDX 標準為 AvailableReturnSlots
+        const empty = item.AvailableReturnSlots ?? item.AvailableReturnBikes ?? 0;
+
         const statusClass = bike === 0 ? 'danger' : (bike < 3 ? 'warning' : 'good');
 
         const card = document.createElement("div");
@@ -105,7 +128,7 @@ function renderStations(data) {
                 </div>
                 <div class="stat-item">
                     <span class="label">🅿️ 可還</span>
-                    <span class="count" style="color: #636e72;">${empty}</span>
+                    <span class="count">${empty}</span>
                 </div>
             </div>
         `;
