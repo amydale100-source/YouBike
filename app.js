@@ -1,103 +1,114 @@
-// ====== 設定區域 ======
-// 使用 allorigins 代理，並連結至最穩定的 YouBike 2.0 來源（含新北站點）
-const API_URL = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json");
+// ====== TDX 認證設定 ======
+const CLIENT_ID = 'amydale100-8925db52-3fb0-4142';
+const CLIENT_SECRET = '9fce0770-fea0-4353-891a-f89f37b5c532';
 
-// 建議使用純站名，過濾時會比較準確
-const FAVORITE_STATIONS = [
-  "捷運三重站(1號出口)",
-  "捷運三重站(3號出口)",
-  "三重重陽公園",
-  "二重國小",
-  "東海高中"
-];
+const FAVORITE_STATIONS = ["捷運三重站(1號出口)", "捷運三重站(3號出口)", "三重重陽公園", "二重國小", "東海高中"];
+const APP_VERSION = 24; // 更新版號
 
-const APP_VERSION = 10;
-
-// ====== 初始化 ======
 document.addEventListener("DOMContentLoaded", () => {
-  const versionEl = document.getElementById("version");
-  if (versionEl) versionEl.innerText = `🚲 app.js 更新版本：第 ${APP_VERSION} 版`;
-  fetchData();
-  
-  // 設定每 60 秒自動更新
-  setInterval(fetchData, 60000);
+    const verEl = document.getElementById("version");
+    if (verEl) verEl.innerText = `🚲 app.js 版本：${APP_VERSION} (樣式優化版)`;
+    const btn = document.getElementById("refreshBtn");
+    if (btn) btn.addEventListener("click", startUpdate);
 });
 
-// ====== 抓取資料邏輯 ======
-async function fetchData() {
-  const statusEl = document.getElementById("status");
-  statusEl.innerText = "連線中...";
+async function startUpdate() {
+    const statusEl = document.getElementById("status");
+    const lastUpdateEl = document.getElementById("lastUpdate");
+    const btn = document.getElementById("refreshBtn");
 
-  try {
-    const res = await fetch(API_URL);
-    if (!res.ok) throw new Error(`HTTP 錯誤: ${res.status}`);
+    try {
+        btn.disabled = true;
+        btn.innerText = "讀取中...";
+        statusEl.innerText = "🔑 正在取得授權...";
+        const token = await getTDXToken();
 
-    const wrapper = await res.json();
+        statusEl.innerText = "📡 正在同步站點資料...";
+        const [stationInfo, availability] = await Promise.all([
+            fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Bike/Station/City/NewTaipei?$format=JSON", token),
+            fetchTDX("https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/NewTaipei?$format=JSON", token)
+        ]);
+
+        const combinedData = availability.map(avail => {
+            const info = stationInfo.find(s => s.StationID === avail.StationID);
+            return {
+                ...avail,
+                StationName: info ? info.StationName : { Zh_tw: "未知站點" }
+            };
+        });
+
+        renderStations(combinedData);
+        statusEl.innerText = "✅ 更新完成！";
+        if (lastUpdateEl) lastUpdateEl.innerText = new Date().toLocaleTimeString();
+
+    } catch (err) {
+        console.error(err);
+        statusEl.innerText = "❌ 錯誤：" + err.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "🚲 現在有車嗎？(點我查詢)";
+    }
+}
+
+async function getTDXToken() {
+    const authUrl = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token";
+    const body = new URLSearchParams({
+        'grant_type': 'client_credentials',
+        'client_id': CLIENT_ID.trim(),
+        'client_secret': CLIENT_SECRET.trim()
+    });
+    const res = await fetch(authUrl, { method: 'POST', body });
+    if (!res.ok) throw new Error("授權失敗");
+    const data = await res.json();
+    return data.access_token;
+}
+
+async function fetchTDX(url, token) {
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error("API 連線失敗");
+    return await res.json();
+}
+
+function renderStations(data) {
+    // 【重要】這裡要對應你的 CSS ID: bike-list
+    const container = document.getElementById("bike-list") || document.getElementById("stationList");
+    if (!container) return;
     
-    // allorigins 會將內容放在 .contents 中（字串格式）
-    if (!wrapper.contents) throw new Error("Proxy 未回傳內容");
-    
-    const data = JSON.parse(wrapper.contents);
+    container.innerHTML = "";
 
-    if (Array.isArray(data)) {
-      renderStations(data);
-      statusEl.innerText = `最後更新時間：${new Date().toLocaleTimeString()}`;
-    } else {
-      throw new Error("資料格式非數組");
+    const filtered = data.filter(item => {
+        const name = item.StationName?.Zh_tw || "";
+        return FAVORITE_STATIONS.some(fav => name.includes(fav));
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="card">找不到符合的站點。</div>`;
+        return;
     }
 
-  } catch (err) {
-    console.error("❌ 錯誤詳情:", err);
-    statusEl.innerText = "讀取失敗，請確認 API 狀態";
-  }
-}
+    filtered.forEach(item => {
+        const name = item.StationName.Zh_tw.replace("YouBike2.0_", "");
+        const bike = item.AvailableRentBikes ?? 0;
+        const empty = item.AvailableReturnSlots ?? 0; // TDX 的欄位名
+        
+        // 根據數量決定狀態顏色 (對應你的 CSS)
+        const statusClass = bike === 0 ? 'danger' : (bike < 3 ? 'warning' : 'good');
 
-// ====== 畫面渲染邏輯 ======
-function renderStations(data) {
-  const container = document.getElementById("stationList");
-  if (!container) return;
-  
-  container.innerHTML = "";
-
-  // 過濾：檢查 API 的 sna 欄位是否包含我們設定的站名關鍵字
-  const filtered = data.filter(s =>
-    FAVORITE_STATIONS.some(fav => s.sna.includes(fav))
-  );
-
-  if (filtered.length === 0) {
-    container.innerHTML = "<div class='card'>找不到指定站點，請確認站名是否正確。</div>";
-    return;
-  }
-
-  filtered.forEach(station => {
-    const bike = parseInt(station.sbi || 0);
-    const empty = parseInt(station.bemp || 0);
-    // 移除名稱前綴以利閱讀
-    const cleanName = station.sna.replace("YouBike2.0_", "");
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div class="station-name">📍 ${cleanName}</div>
-      <div class="info">
-        <div class="stat-item ${getBikeColor(bike)}">
-          <span class="label">🚲 可借</span>
-          <span class="count">${bike}</span>
-        </div>
-        <div class="stat-item">
-          <span class="label">🅿️ 可還</span>
-          <span class="count">${empty}</span>
-        </div>
-      </div>
-      <div class="update-time">更新時間: ${station.mday}</div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-// ====== 輔助函數：顏色判定 ======
-function getBikeColor(bike) {
-  if (bike === 0) return "danger";
-  if (bike <= 3) return "warning";
-  return "good";
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+            <div class="station-name">📍 ${name}</div>
+            <div class="info">
+                <div class="stat-item ${statusClass}">
+                    <span class="label">🚲 可借</span>
+                    <span class="count">${bike}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">🅿️ 可還</span>
+                    <span class="count" style="color: #636e72;">${empty}</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
 }
