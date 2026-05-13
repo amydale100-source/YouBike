@@ -12,22 +12,17 @@ const FAVORITE_STATIONS = [
 // ====== 主要流程 ======
 
 async function fetchData() {
-  document.getElementById("status").innerText = "更新中...";
+  const data = [
+    { sna: "捷運府中站", sbi: 5, bemp: 10 },
+    { sna: "板橋車站", sbi: 0, bemp: 20 },
+    { sna: "捷運新埔站", sbi: 12, bemp: 3 }
+  ];
 
-  try {
-    const res = await fetch(API_URL);
-    const data = await res.json();
+  renderStations(data);
 
-    renderStations(data);
-
-    document.getElementById("status").innerText = "更新成功";
-    document.getElementById("lastUpdate").innerText =
-      new Date().toLocaleTimeString();
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById("status").innerText = "讀取失敗（API 或 CORS 問題）";
-  }
+  document.getElementById("status").innerText = "測試資料";
+  document.getElementById("lastUpdate").innerText =
+    new Date().toLocaleTimeString();
 }
 
 // ====== 過濾 + 顯示 ======
