@@ -9,7 +9,7 @@ const FAVORITE_STATIONS = [
 ];
 
 // ====== 版本 ======
-const APP_VERSION = 3;
+const APP_VERSION = 4;
 
 // ====== DOM ready ======
 document.addEventListener("DOMContentLoaded", () => {
