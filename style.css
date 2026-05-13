@@ -1,0 +1,53 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.container {
+  padding: 16px;
+  max-width: 600px;
+  margin: auto;
+}
+
+h1 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+#status {
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #94a3b8;
+}
+
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.station-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.good { color: #22c55e; }
+.warning { color: #facc15; }
+.danger { color: #ef4444; }
+
+.footer {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
