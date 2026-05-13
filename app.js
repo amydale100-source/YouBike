@@ -1,6 +1,5 @@
-// ====== 你要改的地方（API） ======
-// 新北 YouBike2.0 API（可能會變動，之後可替換）
-const API_URL = "https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/json";
+// ====== API ======
+const API_URL = "https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/csv/file";
 
 // ====== 你常用的站點 ======
 const FAVORITE_STATIONS = [
@@ -9,13 +8,33 @@ const FAVORITE_STATIONS = [
   "捷運新埔站"
 ];
 
-// ====== 主要流程 ======
-const APP_VERSION = 2;
+// ====== 版本 ======
+const APP_VERSION = 3;
 
+// ====== DOM ready ======
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("version").innerText =
     `🚲 app.js 更新版本：第 ${APP_VERSION} 版`;
 });
+
+// ====== CSV 解析器 ======
+function parseCSV(csv) {
+  const lines = csv.trim().split("\n");
+  const headers = lines[0].split(",");
+
+  return lines.slice(1).map(line => {
+    const values = line.split(",");
+    const obj = {};
+
+    headers.forEach((h, i) => {
+      obj[h.trim()] = values[i]?.trim();
+    });
+
+    return obj;
+  });
+}
+
+// ====== 抓資料 ======
 async function fetchData() {
   document.getElementById("status").innerText = "更新中...";
 
@@ -26,13 +45,14 @@ async function fetchData() {
     console.log("OK:", res.ok);
 
     const text = await res.text();
+
     console.log("RAW RESPONSE:", text.slice(0, 300));
 
     if (!res.ok) {
       throw new Error(`HTTP error: ${res.status}`);
     }
 
-    const data = JSON.parse(text);
+    const data = parseCSV(text);
 
     renderStations(data);
 
@@ -46,8 +66,7 @@ async function fetchData() {
   }
 }
 
-// ====== 過濾 + 顯示 ======
-
+// ====== 顯示資料 ======
 function renderStations(data) {
   const container = document.getElementById("stationList");
   container.innerHTML = "";
@@ -57,8 +76,8 @@ function renderStations(data) {
   );
 
   filtered.forEach(station => {
-    const bike = parseInt(station.sbi || 0);   // 可借
-    const empty = parseInt(station.bemp || 0); // 可還
+    const bike = Number(station.sbi || 0);
+    const empty = Number(station.bemp || 0);
 
     const card = document.createElement("div");
     card.className = "card";
@@ -75,8 +94,7 @@ function renderStations(data) {
   });
 }
 
-// ====== 顏色邏輯 ======
-
+// ====== 顏色 ======
 function getColor(bike) {
   if (bike === 0) return "danger";
   if (bike <= 3) return "warning";
@@ -84,6 +102,5 @@ function getColor(bike) {
 }
 
 // ====== 自動更新 ======
-
 fetchData();
 setInterval(fetchData, 30000);
