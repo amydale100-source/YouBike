@@ -12,8 +12,10 @@ const FAVORITE_STATIONS = [
 // ====== 主要流程 ======
 const APP_VERSION = 1;
 
-document.getElementById("version").innerText =
-  `🚲 app.js 更新版本：第 ${APP_VERSION} 版`;
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("version").innerText =
+    `🚲 app.js 更新版本：第 ${APP_VERSION} 版`;
+});
 async function fetchData() {
   document.getElementById("status").innerText = "更新中...";
 
