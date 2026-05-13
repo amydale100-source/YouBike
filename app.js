@@ -36,33 +36,20 @@ function parseCSV(csv) {
 
 // ====== 抓資料 ======
 async function fetchData() {
-  document.getElementById("status").innerText = "更新中...";
-
   try {
     const res = await fetch(API_URL);
 
-    console.log("STATUS:", res.status);
-    console.log("OK:", res.ok);
+    console.log("STATUS =", res.status);
+    console.log("OK =", res.ok);
+    console.log("TYPE =", res.headers.get("content-type"));
 
     const text = await res.text();
 
-    console.log("RAW RESPONSE:", text.slice(0, 300));
-
-    if (!res.ok) {
-      throw new Error(`HTTP error: ${res.status}`);
-    }
-
-    const data = parseCSV(text);
-
-    renderStations(data);
-
-    document.getElementById("status").innerText = "即時資料";
-    document.getElementById("lastUpdate").innerText =
-      new Date().toLocaleTimeString();
+    console.log("FIRST 300 CHARS:");
+    console.log(text.slice(0, 300));
 
   } catch (err) {
-    console.error("❌ FETCH ERROR:", err);
-    document.getElementById("status").innerText = "API 讀取失敗";
+    console.error("FETCH FAILED:", err);
   }
 }
 
