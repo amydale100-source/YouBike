@@ -1,7 +1,6 @@
-console.log("🚲 app.js 有更新")
 // ====== 你要改的地方（API） ======
 // 新北 YouBike2.0 API（可能會變動，之後可替換）
-const API_URL = "https://data.ntpc.gov.tw/api/datasets/YOUR_DATASET_ID/json";
+const API_URL = "https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/json";
 
 // ====== 你常用的站點 ======
 const FAVORITE_STATIONS = [
@@ -16,7 +15,12 @@ async function fetchData() {
   document.getElementById("status").innerText = "更新中...";
 
   try {
-    const res = await fetch("https://data.ntpc.gov.tw/api/datasets/3A8A.../json");
+    const res = await fetch(API_URL);
+
+    if (!res.ok) {
+      throw new Error(`HTTP error: ${res.status}`);
+    }
+
     const data = await res.json();
 
     renderStations(data);
