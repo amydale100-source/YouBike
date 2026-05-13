@@ -10,7 +10,7 @@ const FAVORITE_STATIONS = [
 ];
 
 // ====== 主要流程 ======
-const APP_VERSION = 1;
+const APP_VERSION = 2;
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("version").innerText =
@@ -22,11 +22,17 @@ async function fetchData() {
   try {
     const res = await fetch(API_URL);
 
+    console.log("STATUS:", res.status);
+    console.log("OK:", res.ok);
+
+    const text = await res.text();
+    console.log("RAW RESPONSE:", text.slice(0, 300));
+
     if (!res.ok) {
       throw new Error(`HTTP error: ${res.status}`);
     }
 
-    const data = await res.json();
+    const data = JSON.parse(text);
 
     renderStations(data);
 
@@ -35,7 +41,7 @@ async function fetchData() {
       new Date().toLocaleTimeString();
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ FETCH ERROR:", err);
     document.getElementById("status").innerText = "API 讀取失敗";
   }
 }
