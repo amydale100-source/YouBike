@@ -1,102 +1,92 @@
-// ====== API ======
-const API_URL =
-  "https://corsproxy.io/?https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/json";
-// ====== 你常用的站點 ======
+// ====== 設定區域 ======
+// 使用不同的代理伺服器試試看，並指向 YouBike 2.0 即時資料
+const API_URL = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json");
+
 const FAVORITE_STATIONS = [
-  "YouBike2.0_下庄市場",
+  "下庄市場",
   "板橋車站",
   "捷運新埔站"
 ];
 
-// ====== 版本 ======
-const APP_VERSION = 7;
+const APP_VERSION = 9;
 
-// ====== DOM ready ======
+// ====== 初始化 ======
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("version").innerText =
-    `🚲 app.js 更新版本：第 ${APP_VERSION} 版`;
+  const versionEl = document.getElementById("version");
+  if (versionEl) versionEl.innerText = `🚲 app.js 更新版本：第 ${APP_VERSION} 版`;
+  fetchData();
 });
 
-// ====== CSV 解析器 ======
-function parseCSV(csv) {
-  const lines = csv.trim().split("\n");
-  const headers = lines[0].split(",");
-
-  return lines.slice(1).map(line => {
-    const values = line.split(",");
-    const obj = {};
-
-    headers.forEach((h, i) => {
-      obj[h.trim()] = values[i]?.trim();
-    });
-
-    return obj;
-  });
-}
-
-// ====== 抓資料 ======
+// ====== 抓取與處理資料 ======
 async function fetchData() {
-  document.getElementById("status").innerText = "載入中...";
+  const statusEl = document.getElementById("status");
+  statusEl.innerText = "連線中...";
 
   try {
     const res = await fetch(API_URL);
+    if (!res.ok) throw new Error("網路請求失敗");
 
-    console.log("STATUS:", res.status);
-    console.log("TYPE:", res.headers.get("content-type"));
+    const wrapper = await res.json();
+    // allorigins 代理會把結果放在 wrapper.contents 中，且是字串格式
+    const data = JSON.parse(wrapper.contents);
 
-    const text = await res.text();
+    console.log("解析後的資料範例:", data[0]);
 
-    console.log("RAW (前200字):");
-    console.log(text.slice(0, 200));
-
-    if (!res.ok) {
-      throw new Error("HTTP " + res.status);
-    }
-
-    // 暫時先不要 parse，先確認資料長什麼樣
-    document.getElementById("status").innerText = "API 有回應（看console）";
+    renderStations(data);
+    statusEl.innerText = `更新於: ${new Date().toLocaleTimeString()}`;
 
   } catch (err) {
-    console.error("❌ FETCH ERROR:", err);
-    document.getElementById("status").innerText = "API 讀取失敗";
+    console.error("❌ 發生錯誤:", err);
+    statusEl.innerText = "讀取失敗，請確認網路或 API 狀態";
   }
 }
 
-// ====== 顯示資料 ======
+// ====== 顯示資料到網頁 ======
 function renderStations(data) {
   const container = document.getElementById("stationList");
   container.innerHTML = "";
 
+  // 過濾邏輯：s.sna 可能包含 "YouBike2.0_"，我們用 includes 來模糊比對
   const filtered = data.filter(s =>
-    FAVORITE_STATIONS.includes(s.sna)
+    FAVORITE_STATIONS.some(fav => s.sna.includes(fav))
   );
 
+  if (filtered.length === 0) {
+    container.innerHTML = "<p>找不到指定的站點資訊</p>";
+    return;
+  }
+
   filtered.forEach(station => {
+    // 欄位說明: sbi (可借), bemp (可還), sna (站名)
     const bike = Number(station.sbi || 0);
     const empty = Number(station.bemp || 0);
+    const cleanName = station.sna.replace("YouBike2.0_", "");
 
     const card = document.createElement("div");
     card.className = "card";
-
     card.innerHTML = `
-      <div class="station-name">${station.sna}</div>
+      <div class="station-name">📍 ${cleanName}</div>
       <div class="info">
-        <div class="${getColor(bike)}">🚲 可借：${bike}</div>
-        <div>🅿️ 可還：${empty}</div>
+        <div class="stat-item ${getColor(bike)}">
+          <span class="label">🚲 可借</span>
+          <span class="count">${bike}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">🅿️ 可還</span>
+          <span class="count">${empty}</span>
+        </div>
       </div>
     `;
-
     container.appendChild(card);
   });
 }
 
-// ====== 顏色 ======
+// ====== 輔助函數：顏色判定 ======
 function getColor(bike) {
   if (bike === 0) return "danger";
   if (bike <= 3) return "warning";
   return "good";
 }
 
-// ====== 自動更新 ======
-fetchData();
-setInterval(fetchData, 30000);
+// ====== 定時更新 (每 60 秒) ======
+setInterval(fetchData, 60000);
